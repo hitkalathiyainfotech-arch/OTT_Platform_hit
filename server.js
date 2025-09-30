@@ -45,6 +45,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/", (req, res) => {
+  return res.send("<h1>OTT Api is Live</h1>")
+})
+
 // Place rate limiter here
 // app.use(
 //   rateLimit({
@@ -154,6 +158,8 @@ global.redisClient = redisClient; // Make redisClient globally accessible
 
 // Delegate socket event handling to socketManager
 socketManager.handleSocketEvents(io);
+
+
 
 server.listen(port, () => {
   connectDb();
