@@ -1380,7 +1380,7 @@ exports.getMoviesGroupedByGenre = async (req, res) => {
 exports.getTopMoviesThisWeek = async (req, res) => {
   try {
     const user = req.user;
-    let query = {};
+    let query = { type: "movie" }; // 👈 Ensure only movies are fetched
 
     // Apply parental control filter if user is authenticated
     if (user) {
@@ -1405,39 +1405,24 @@ exports.getTopMoviesThisWeek = async (req, res) => {
       .limit(10)
       .populate("category");
 
-    // Populate episodes for each movie
-    const moviesWithEpisodes = await Promise.all(
-      topMovies.map(async (movie) => {
-        const movieObj = movie.toObject();
-
-        // If it's a webseries, fetch episodes
-        if (movie.type === "webseries") {
-          const Episode = require("../models/episodeModel");
-          const episodes = await Episode.find({ movieId: movie._id }).sort({
-            seasonNo: 1,
-            episodeNo: 1,
-          });
-          const seasons = new Set(episodes.map((ep) => ep.seasonNo));
-          movieObj.totalSeasons = seasons.size;
-          movieObj.totalEpisodes = episodes.length;
-        } else {
-          movieObj.totalSeasons = 0;
-          movieObj.totalEpisodes = 0;
-        }
-
-        return movieObj;
-      })
-    );
+    // Since we are filtering only `movies`, no need for episode fetching
+    const moviesWithInfo = topMovies.map((movie) => {
+      const movieObj = movie.toObject();
+      movieObj.totalSeasons = 0;
+      movieObj.totalEpisodes = 0;
+      return movieObj;
+    });
 
     return res.status(200).json({
       status: true,
       message: "Top movies this week fetched successfully",
-      data: moviesWithEpisodes,
+      data: moviesWithInfo,
     });
   } catch (error) {
     return ThrowError(res, 500, error.message);
   }
 };
+
 
 // Get Recommended Content (personalized by most-watched genres from history and continue-watching)
 exports.getRecommendedContent = async (req, res) => {
@@ -2440,28 +2425,227 @@ exports.mediaFilter = async (req, res) => {
 //movie/ banner
 exports.getCarouselController = async (req, res) => {
   try {
-    const carosel = await movieModel.aggregate([
-      { $sample: { size: 6 } }
+    const user = req.user;
+    let matchQuery = { type: "movie" }; // filter only movies
+
+    // Apply parental control filter if user is authenticated
+    if (user) {
+      const userWithParentalControl = await userModel.findById(user._id);
+
+      if (
+        userWithParentalControl &&
+        userWithParentalControl.parentalControl &&
+        userWithParentalControl.parentalControl.length > 0
+      ) {
+        matchQuery.contentRating = {
+          $in: userWithParentalControl.parentalControl,
+        };
+      }
+    }
+
+    // Aggregate with $sample for random 5 movies
+    const movies = await Movie.aggregate([
+      { $match: matchQuery },
+      { $sample: { size: 5 } }, // pick 5 random movies
+      {
+        $lookup: {
+          from: "categories", // collection name in MongoDB
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
+        $unwind: {
+          path: "$category",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          releaseYear: 1,
+          contentRating: 1,
+          views: 1,
+          category: 1,
+          totalSeasons: { $literal: 0 },
+          totalEpisodes: { $literal: 0 },
+        },
+      },
     ]);
 
-    if (!carosel) {
+    return res.status(200).json({
+      status: true,
+      message: "Random carousel movies fetched successfully",
+      data: movies,
+    });
+  } catch (error) {
+    return ThrowError(res, 500, error.message);
+  }
+};
+
+exports.getWebSeriesCarouselBannerController = async (req, res) => {
+  try {
+    const user = req.user;
+    let matchQuery = { type: "webseries" }; // filter only movies
+
+    // Apply parental control filter if user is authenticated
+    if (user) {
+      const userWithParentalControl = await userModel.findById(user._id);
+
+      if (
+        userWithParentalControl &&
+        userWithParentalControl.parentalControl &&
+        userWithParentalControl.parentalControl.length > 0
+      ) {
+        matchQuery.contentRating = {
+          $in: userWithParentalControl.parentalControl,
+        };
+      }
+    }
+
+    // Aggregate with $sample for random 5 movies
+    const movies = await Movie.aggregate([
+      { $match: matchQuery },
+      { $sample: { size: 5 } }, // pick 5 random movies
+      {
+        $lookup: {
+          from: "categories", // collection name in MongoDB
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      {
+        $unwind: {
+          path: "$category",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          releaseYear: 1,
+          contentRating: 1,
+          views: 1,
+          category: 1,
+          totalSeasons: { $literal: 0 },
+          totalEpisodes: { $literal: 0 },
+        },
+      },
+    ]);
+
+    return res.status(200).json({
+      status: true,
+      message: "Random carousel Web Series fetched successfully",
+      data: movies,
+    });
+  } catch (error) {
+    return ThrowError(res, 500, error.message);
+  }
+};
+
+
+
+exports.getTopWebseriesThisWeek = async (req, res) => {
+  try {
+    const user = req.user;
+    let query = { type: "webseries" }; // filter only webseries
+
+    // Apply parental control filter if user is authenticated
+    if (user) {
+      const userWithParentalControl = await userModel.findById(user._id);
+
+      if (
+        userWithParentalControl &&
+        userWithParentalControl.parentalControl &&
+        userWithParentalControl.parentalControl.length > 0
+      ) {
+        query.contentRating = { $in: userWithParentalControl.parentalControl };
+      }
+    }
+
+    // ✅ Removed createdAt filter so it behaves like getTopMoviesThisWeek
+    const topWebseries = await Movie.find(query)
+      .sort({ views: -1 })
+      .limit(10)
+      .populate("category");
+
+    // Populate episodes info for each webseries
+    const webseriesWithEpisodes = await Promise.all(
+      topWebseries.map(async (series) => {
+        const seriesObj = series.toObject();
+        const episodes = await Episode.find({ movieId: series._id }).sort({
+          seasonNo: 1,
+          episodeNo: 1,
+        });
+        const seasons = new Set(episodes.map((ep) => ep.seasonNo));
+        seriesObj.totalSeasons = seasons.size;
+        seriesObj.totalEpisodes = episodes.length;
+        return seriesObj;
+      })
+    );
+
+    return res.status(200).json({
+      status: true,
+      message: "Top webseries this week fetched successfully",
+      data: webseriesWithEpisodes,
+    });
+  } catch (error) {
+    return ThrowError(res, 500, error.message);
+  }
+};
+
+let recentSearches = [];
+
+exports.AllSearchController = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    if (!search || search.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Search query parameter is required."
+      });
+    }
+
+    recentSearches = recentSearches.filter((s) => s !== search.trim());
+
+    recentSearches.unshift(search.trim());
+
+    if (recentSearches.length > 5) {
+      recentSearches.pop();
+    }
+
+    const movies = await Movie.find(
+      { title: { $regex: search, $options: "i" } },
+      { _id: 1, title: 1, releaseYear: 1 }
+    ).limit(20);
+
+    if (!movies || movies.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Catsole not found!"
-      })
+        message: "No movies found matching your search.",
+        recentSearches,
+      });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Carousel Fetched Successfull",
-      carosel
-    })
-
+      results: movies.map((movie) => ({
+        id: movie._id,
+        title: movie.title,
+        releaseYear: movie.releaseYear
+      })),
+      recentSearches,
+    });
   } catch (error) {
-    console.log(error);
     return res.status(500).json({
-      message: "Error During get carosel data",
+      success: false,
+      message: "Server error while searching for movies.",
       error: error.message
-    })
+    });
   }
-}
+};
