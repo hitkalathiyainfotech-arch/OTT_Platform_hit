@@ -2131,7 +2131,7 @@ exports.getPopularMoviesByCategory = async (req, res) => {
     const popularMoviesByCategory = {};
 
     for (const category of categories) {
-      const popularMovies = await Movie.find({ category: category._id })
+      const popularMovies = await movieModel.find({ category: category._id })
         .sort({ rating: -1, views: -1 })
         .limit(10)
         .populate("category");
@@ -2161,6 +2161,7 @@ exports.getPopularMoviesByCategory = async (req, res) => {
             thumbnail: movie.thumbnail,
             description: movie.description,
             type: movie.type,
+            isPremium: movie.isPremium,
             views: movie.views.length,
             rating: movie.rating,
             category: movie.category,
