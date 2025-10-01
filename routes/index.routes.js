@@ -3,7 +3,7 @@ const indexRoutes = express.Router();
 const { removeUser, pdateUser, getUserById, getAllUsers, createNewUser, resetPassword, verifyOtp, sendDeleteOtp, verifyDeleteOtp, getDevices, removeDevice, logoutDevice, enableTwoStep, verifyTwoStep, updateScreenTimeUsage, getScreenTimeRemaining, updateUser, } = require("../controller/user.controller");
 const { userLogin, googleLogin, forgotPassword, changePassword, userLogout, sendOtpToMobile, facebookLogin, generateNewToken, verifyTwoStepOTP, } = require("../auth/auth");
 const { auth, movieAuth } = require("../middleware/auth");
-const { getTrending, getPopularSeries, getAllMovies, getMovieById, deleteMovie, getPopularMovies, getTopMoviesThisWeek, getRecommendedContent, getTop10Content, rateMovie, updateMovieRating, deleteMovieRating, getMovieRatingDetails, getTopRatedMovies, incrementMovieViews, getWatchAgainMovies, getPopularMoviesByCategory, createMovie, updateMovie, getTrendingSeries, getTrendingMovie, getMoviesGroupedByGenre, getLastFiveUploadedMovies, addView, uploadVideo, mediaFilter, } = require("../controller/movie.controller.js");
+const { getTrending, getPopularSeries, getAllMovies, getMovieById, deleteMovie, getPopularMovies, getTopMoviesThisWeek, getRecommendedContent, getTop10Content, rateMovie, updateMovieRating, deleteMovieRating, getMovieRatingDetails, getTopRatedMovies, incrementMovieViews, getWatchAgainMovies, getPopularMoviesByCategory, createMovie, updateMovie, getTrendingSeries, getTrendingMovie, getMoviesGroupedByGenre, getLastFiveUploadedMovies, addView, uploadVideo, mediaFilter, getCarouselController, } = require("../controller/movie.controller.js");
 const { createCategory, updateCategory, getCategoryById, getAllCategories, deleteCategory, } = require("../controller/movieCategory.Controller");
 const { upload, convertJfifToJpeg } = require("../helper/uplodes");
 const { createStarring, getAllStarring, getStarringById, getStarringByMovieId, updateStarring, deleteStarring, } = require("../controller/starring.controller");
@@ -128,6 +128,8 @@ indexRoutes.get("/getCategoryById/:id", cacheMiddleware((req) => `cache:GET:${re
 indexRoutes.get("/getAllCategories", cacheMiddleware((req) => `cache:GET:${req.originalUrl}`, 3600), getAllCategories);
 indexRoutes.put("/updateCategory/:id", csrfProtection, upload.single("category_image"), convertJfifToJpeg, updateCategory);
 indexRoutes.delete("/deleteCategory/:id", csrfProtection, deleteCategory);
+
+indexRoutes.get("/carousel/banner", getCarouselController)
 
 // movie Routes
 

@@ -806,7 +806,7 @@ exports.forgotPassword = async (req, res) => {
       checkEmail.resetPasswordExpires = resetTokenExpiry;
       await checkEmail.save();
 
-      const resetUrl = `http://localhost:3000?token=${resetToken}&email=${email}`; // Adjust frontend URL as needed
+      const resetUrl = `https://ott-platform-hit.onrender.com/?token=${resetToken}&email=${email}`; // Adjust frontend URL as needed
 
       const transport = nodemailer.createTransport({
         service: "Gmail",

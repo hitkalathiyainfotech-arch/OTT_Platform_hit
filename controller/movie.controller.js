@@ -2436,3 +2436,32 @@ exports.mediaFilter = async (req, res) => {
     });
   }
 }
+
+//movie/ banner
+exports.getCarouselController = async (req, res) => {
+  try {
+    const carosel = await movieModel.aggregate([
+      { $sample: { size: 6 } }
+    ]);
+
+    if (!carosel) {
+      return res.status(404).json({
+        success: false,
+        message: "Catsole not found!"
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Carousel Fetched Successfull",
+      carosel
+    })
+
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Error During get carosel data",
+      error: error.message
+    })
+  }
+}
