@@ -2489,7 +2489,7 @@ exports.getCarouselController = async (req, res) => {
 exports.getWebSeriesCarouselBannerController = async (req, res) => {
   try {
     const user = req.user;
-    let matchQuery = { type: "webseries" }; // filter only movies
+    let matchQuery = { type: "webseries" }; // filter only webseries
 
     // Apply parental control filter if user is authenticated
     if (user) {
@@ -2506,16 +2506,16 @@ exports.getWebSeriesCarouselBannerController = async (req, res) => {
       }
     }
 
-    // Aggregate with $sample for random 5 movies
-    const movies = await Movie.aggregate([
+    // Aggregate with $sample for random 5 webseries
+    const webseries = await Movie.aggregate([
       { $match: matchQuery },
-      { $sample: { size: 5 } }, // pick 5 random movies
+      { $sample: { size: 5 } }, // pick 5 random
       {
         $lookup: {
-          from: "categories", // collection name in MongoDB
-          localField: "category",
-          foreignField: "_id",
-          as: "category",
+          from: "categories",          // collection name in MongoDB
+          localField: "category",      // field in Movie
+          foreignField: "_id",         // field in Category
+          as: "category",              // result field
         },
       },
       {
@@ -2524,29 +2524,19 @@ exports.getWebSeriesCarouselBannerController = async (req, res) => {
           preserveNullAndEmptyArrays: true,
         },
       },
-      {
-        $project: {
-          _id: 1,
-          title: 1,
-          releaseYear: 1,
-          contentRating: 1,
-          views: 1,
-          category: 1,
-          totalSeasons: { $literal: 0 },
-          totalEpisodes: { $literal: 0 },
-        },
-      },
+      // ❌ Removed $project to keep ALL movie fields
     ]);
 
     return res.status(200).json({
       status: true,
       message: "Random carousel Web Series fetched successfully",
-      data: movies,
+      data: webseries,
     });
   } catch (error) {
     return ThrowError(res, 500, error.message);
   }
 };
+
 
 
 
