@@ -2525,9 +2525,6 @@ exports.getWebSeriesCarouselBannerController = async (req, res) => {
   }
 };
 
-
-
-
 exports.getTopWebseriesThisWeek = async (req, res) => {
   try {
     const user = req.user;
