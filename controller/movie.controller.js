@@ -2604,8 +2604,8 @@ exports.AllSearchController = async (req, res) => {
 
     if (!movies || movies.length === 0) {
       return res.status(404).json({
-        success: false,
-        message: "No movies found matching your search.",
+        success: true,
+        result: [],
         recentSearches,
       });
     }
