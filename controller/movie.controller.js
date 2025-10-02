@@ -2590,18 +2590,17 @@ exports.AllSearchController = async (req, res) => {
       });
     }
 
+    // Maintain unique recent searches (max 5)
     recentSearches = recentSearches.filter((s) => s !== search.trim());
-
     recentSearches.unshift(search.trim());
-
     if (recentSearches.length > 5) {
       recentSearches.pop();
     }
 
-    const movies = await Movie.find(
-      { title: { $regex: search, $options: "i" } },
-      { _id: 1, title: 1, releaseYear: 1 }
-    ).limit(20);
+    // Get full movie data instead of specific fields
+    const movies = await Movie.find({
+      title: { $regex: search, $options: "i" }
+    }).limit(20);
 
     if (!movies || movies.length === 0) {
       return res.status(404).json({
@@ -2613,11 +2612,7 @@ exports.AllSearchController = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      results: movies.map((movie) => ({
-        id: movie._id,
-        title: movie.title,
-        releaseYear: movie.releaseYear
-      })),
+      results: movies,
       recentSearches,
     });
   } catch (error) {
@@ -2628,3 +2623,4 @@ exports.AllSearchController = async (req, res) => {
     });
   }
 };
+
