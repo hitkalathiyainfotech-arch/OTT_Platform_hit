@@ -2354,7 +2354,7 @@ exports.getLastFiveUploadedMovies = async (req, res) => {
   }
 };
 
-// ======================== views Add ==============================
+
 
 exports.addView = async (req, res) => {
   try {
