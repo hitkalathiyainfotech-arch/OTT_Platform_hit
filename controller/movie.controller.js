@@ -2461,19 +2461,7 @@ exports.getCarouselController = async (req, res) => {
           path: "$category",
           preserveNullAndEmptyArrays: true,
         },
-      },
-      {
-        $project: {
-          _id: 1,
-          title: 1,
-          releaseYear: 1,
-          contentRating: 1,
-          views: 1,
-          category: 1,
-          totalSeasons: { $literal: 0 },
-          totalEpisodes: { $literal: 0 },
-        },
-      },
+      }
     ]);
 
     return res.status(200).json({
