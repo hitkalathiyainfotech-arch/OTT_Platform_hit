@@ -15,6 +15,7 @@ const ContinueWatching = require("../models/continueWatching.model.js");
 const Subscriber = require("../models/Subscribe.model.js");
 const { formatMovieObject } = require("../utils/sanitize");
 const movieModel = require("../models/movie.model.js");
+const recentSearchModel = require("../models/recent.search.model.js");
 
 function cleanupUploadedFiles(req) {
   if (req.files) {
@@ -2634,11 +2635,11 @@ exports.getTopWebseriesThisWeek = async (req, res) => {
   }
 };
 
-let recentSearches = [];
 
 exports.AllSearchController = async (req, res) => {
   try {
     const { search } = req.query;
+    const userId = req.user?._id;
 
     if (!search || search.trim() === "") {
       return res.status(400).json({
@@ -2647,30 +2648,25 @@ exports.AllSearchController = async (req, res) => {
       });
     }
 
-    // Maintain unique recent searches (max 5)
-    recentSearches = recentSearches.filter((s) => s !== search.trim());
-    recentSearches.unshift(search.trim());
-    if (recentSearches.length > 5) {
-      recentSearches.pop();
-    }
-
-    // Get full movie data instead of specific fields
+    // Save recent search
+    const recentSearch = await recentSearchModel.create({ userId, search });
+    await recentSearch.save();
+    // Get movies matching title
     const movies = await Movie.find({
       title: { $regex: search, $options: "i" }
     }).limit(20);
 
     if (!movies || movies.length === 0) {
       return res.status(404).json({
-        success: true,
-        result: [],
-        recentSearches,
+        success: false,
+        results: [],
+        message: "No movies found for the search query."
       });
     }
 
     return res.status(200).json({
       success: true,
       results: movies,
-      recentSearches,
     });
   } catch (error) {
     return res.status(500).json({
@@ -2681,3 +2677,16 @@ exports.AllSearchController = async (req, res) => {
   }
 };
 
+exports.getRecentSearch = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const recentSearch = await recentSearchModel.find({ userId }).sort({ createdAt: -1 }).limit(10);
+    return res.status(200).json({
+      status: true,
+      message: "Recent search fetched successfully",
+      data: recentSearch,
+    });
+  } catch (error) {
+    return ThrowError(res, 500, error.message);
+  }
+}
