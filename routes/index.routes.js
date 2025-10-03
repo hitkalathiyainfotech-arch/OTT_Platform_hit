@@ -3,7 +3,7 @@ const indexRoutes = express.Router();
 const { removeUser, pdateUser, getUserById, getAllUsers, createNewUser, resetPassword, verifyOtp, sendDeleteOtp, verifyDeleteOtp, getDevices, removeDevice, logoutDevice, enableTwoStep, verifyTwoStep, updateScreenTimeUsage, getScreenTimeRemaining, updateUser, } = require("../controller/user.controller");
 const { userLogin, googleLogin, forgotPassword, changePassword, userLogout, sendOtpToMobile, facebookLogin, generateNewToken, verifyTwoStepOTP, } = require("../auth/auth");
 const { auth, movieAuth } = require("../middleware/auth");
-const { getTrending, getPopularSeries, getAllMovies, getMovieById, deleteMovie, getPopularMovies, getTopMoviesThisWeek, getRecommendedContent, getTop10Content, rateMovie, updateMovieRating, deleteMovieRating, getMovieRatingDetails, getTopRatedMovies, incrementMovieViews, getWatchAgainMovies, getPopularMoviesByCategory, createMovie, updateMovie, getTrendingSeries, getTrendingMovie, getMoviesGroupedByGenre, getLastFiveUploadedMovies, addView, uploadVideo, mediaFilter, getCarouselController, AllSearchController, getTopWebseriesThisWeek, getWebSeriesCarouselBannerController, } = require("../controller/movie.controller.js");
+const { getTrending, getPopularSeries, getAllMovies, getMovieById, deleteMovie, getPopularMovies, getTopMoviesThisWeek, getRecommendedContent, getTop10Content, rateMovie, updateMovieRating, deleteMovieRating, getMovieRatingDetails, getTopRatedMovies, incrementMovieViews, getWatchAgainMovies, getPopularMoviesByCategory, createMovie, updateMovie, getTrendingSeries, getTrendingMovie, getMoviesGroupedByGenre, getLastFiveUploadedMovies, addView, uploadVideo, mediaFilter, getCarouselController, AllSearchController, getTopWebseriesThisWeek, getWebSeriesCarouselBannerController, getAllTrending, } = require("../controller/movie.controller.js");
 const { createCategory, updateCategory, getCategoryById, getAllCategories, deleteCategory, } = require("../controller/movieCategory.Controller");
 const { upload, convertJfifToJpeg } = require("../helper/uplodes");
 const { createStarring, getAllStarring, getStarringById, getStarringByMovieId, updateStarring, deleteStarring, } = require("../controller/starring.controller");
@@ -187,6 +187,7 @@ indexRoutes.delete("/deleteMovie/:id", csrfProtection, auth, deleteMovie);
 indexRoutes.get("/getAllMovies", movieAuth, getAllMovies);
 
 // New routes for movie listings
+indexRoutes.get("/allTranding", movieAuth, getAllTrending)
 indexRoutes.get("/trendingSeries", movieAuth, getTrendingSeries);
 indexRoutes.get("/trendingMovies", movieAuth, getTrendingMovie);
 indexRoutes.get("/getPopularMovies", movieAuth, getPopularMovies);

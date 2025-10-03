@@ -1029,6 +1029,66 @@ exports.getTrendingMovie = async (req, res) => {
   }
 };
 
+exports.getAllTrending = async (req, res) => {
+  try {
+    const user = req.user;
+    let query = {}; // ✅ No type filter (fetch all movies & webseries)
+
+    // Apply parental control filter if user is authenticated
+    if (user) {
+      const userWithParentalControl = await userModel.findById(user._id);
+
+      if (
+        userWithParentalControl &&
+        Array.isArray(userWithParentalControl.parentalControl) &&
+        userWithParentalControl.parentalControl.length > 0
+      ) {
+        query.contentRating = { $in: userWithParentalControl.parentalControl };
+      }
+    }
+
+    const trendingSeriesOrMovies = await Movie.find(query)
+      .sort({ views: -1 })
+      .limit(10)
+      .populate("category");
+
+    if (!trendingSeriesOrMovies || trendingSeriesOrMovies.length === 0) {
+      return ThrowError(res, 404, "No trending content found");
+    }
+
+    // Add episode & season summary only for webseries
+    const contentWithDetails = await Promise.all(
+      trendingSeriesOrMovies.map(async (item) => {
+        const itemObj = item.toObject();
+
+        if (item.type === "webseries") {
+          const episodes = await Episode.find({ movieId: item._id }).sort({
+            seasonNo: 1,
+            episodeNo: 1,
+          });
+
+          const seasons = new Set(episodes.map((ep) => ep.seasonNo));
+          itemObj.totalSeasons = seasons.size;
+          itemObj.totalEpisodes = episodes.length;
+        }
+
+        return itemObj;
+      })
+    );
+
+    return res.status(200).json({
+      status: true,
+      message: "Trending content fetched successfully",
+      data: contentWithDetails,
+    });
+  } catch (error) {
+    console.error("Trending Fetch Error:", error);
+    return ThrowError(res, 500, error.message || "Server error while fetching trending content");
+  }
+};
+
+
+
 // Get Trending series
 exports.getTrendingSeries = async (req, res) => {
   try {
