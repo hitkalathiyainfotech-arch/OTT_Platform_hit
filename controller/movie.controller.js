@@ -1346,93 +1346,80 @@ exports.getPopularMovies = async (req, res) => {
 exports.getMoviesGroupedByGenre = async (req, res) => {
   try {
     const user = req.user;
-    let query = { type: "movie" };
+    const { type } = req.query;
 
-    // Apply parental control filter if user is authenticated
+    let query = {};
+
+    if (type && ["movie", "webseries"].includes(type.toLowerCase())) {
+      query.type = type.toLowerCase();
+    }
+
     if (user) {
-      // Get user's parental control settings
-      const userWithParentalControl = await userModel.findById(user._id);
-
+      const userData = await userModel.findById(user._id).lean();
       if (
-        userWithParentalControl &&
-        userWithParentalControl.parentalControl &&
-        userWithParentalControl.parentalControl.length > 0
+        userData &&
+        userData.parentalControl &&
+        Array.isArray(userData.parentalControl) &&
+        userData.parentalControl.length > 0
       ) {
-        // Filter movies based on user's allowed content ratings
-        query.contentRating = { $in: userWithParentalControl.parentalControl };
+        query.contentRating = { $in: userData.parentalControl };
       }
     }
 
-    const movies = await Movie.find(query).populate("category");
+    const movies = await movieModel.find(query).lean();
 
     if (!movies || movies.length === 0) {
       return res.status(200).json({
         status: true,
-        message: "No movies found",
+        message: "No content found",
         data: {},
       });
     }
-    // Group movies by genre, ensuring all genres have the first letter capitalized and ignoring case sensitivity
-    const groupedMovies = movies.reduce((acc, movie) => {
+
+    const groupedContent = {};
+
+    for (const movie of movies) {
       let genres = [];
+
       if (typeof movie.genre === "string") {
         genres = movie.genre
           .split(",")
-          .map(
-            (g) =>
-              g.trim().charAt(0).toUpperCase() + g.trim().slice(1).toLowerCase()
-          )
+          .map((g) => g.trim())
           .filter(Boolean);
       } else if (Array.isArray(movie.genre)) {
-        genres = movie.genre
-          .map(
-            (g) =>
-              g.trim().charAt(0).toUpperCase() + g.trim().slice(1).toLowerCase()
-          )
-          .filter(Boolean);
-      }
-      if (genres.length === 0) {
-        genres = ["Uncategorized"];
+        genres = movie.genre.map((g) => g.trim()).filter(Boolean);
       }
 
-      genres.forEach((genre) => {
-        if (!genre) return; // Skip if genre is null or undefined
+      if (genres.length === 0) genres = ["Uncategorized"];
 
-        // Ensure genre is in the correct case for the accumulator
+      for (const genre of genres) {
         const formattedGenre =
           genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase();
-        if (!acc[formattedGenre]) {
-          acc[formattedGenre] = [];
-        }
-        acc[formattedGenre].push({
-          _id: movie._id,
-          title: movie.title,
-          thumbnail: movie.thumbnail,
-          description: movie.description,
-          type: movie.type,
-          views: movie.views || [],
-          rating: movie.rating || 0,
-          category: movie.category,
-        });
-      });
-      return acc;
-    }, {});
 
-    // Sort movies within each genre by rating and views
-    Object.keys(groupedMovies).forEach((genre) => {
-      groupedMovies[genre].sort((a, b) => {
-        const ratingDiff = (b.rating || 0) - (a.rating || 0);
-        if (ratingDiff !== 0) return ratingDiff;
-        return (b.views || 0) - (a.views || 0);
+        if (!groupedContent[formattedGenre]) groupedContent[formattedGenre] = [];
+        groupedContent[formattedGenre].push(movie);
+      }
+    }
+
+    for (const genre in groupedContent) {
+      groupedContent[genre].sort((a, b) => {
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
+        if (ratingA !== ratingB) return ratingB - ratingA;
+
+        const viewsA = Array.isArray(a.views) ? a.views.length : 0;
+        const viewsB = Array.isArray(b.views) ? b.views.length : 0;
+        return viewsB - viewsA;
       });
-    });
+    }
 
     return res.status(200).json({
       status: true,
-      message: "Movies grouped by genre fetched successfully",
-      data: groupedMovies,
+      message: `Grouped ${type || "all"} content by genre fetched successfully`,
+      data: groupedContent,
     });
   } catch (error) {
+    console.error("Error fetching grouped movies by genre:", error);
     return ThrowError(res, 500, error.message);
   }
 };
@@ -2160,25 +2147,25 @@ exports.getWatchAgainMovies = async (req, res) => {
 exports.getPopularMoviesByCategory = async (req, res) => {
   try {
     const user = req.user;
-    let query = {};
+    const { type } = req.query;
 
-    // Apply parental control filter if user is authenticated
+    let categoryQuery = {};
+
     if (user) {
-      // Get user's parental control settings
       const userWithParentalControl = await userModel.findById(user._id);
 
       if (
         userWithParentalControl &&
-        userWithParentalControl.parentalControl &&
+        Array.isArray(userWithParentalControl.parentalControl) &&
         userWithParentalControl.parentalControl.length > 0
       ) {
-        // Filter movies based on user's allowed content ratings
-        query.contentRating = { $in: userWithParentalControl.parentalControl };
+        categoryQuery.contentRating = {
+          $in: userWithParentalControl.parentalControl,
+        };
       }
     }
 
-    // Get all categories
-    const categories = await MovieCategory.find(query);
+    const categories = await MovieCategory.find(categoryQuery);
 
     if (!categories || categories.length === 0) {
       return res.status(200).json({
@@ -2188,173 +2175,175 @@ exports.getPopularMoviesByCategory = async (req, res) => {
       });
     }
 
-    // Get popular movies for each category
     const popularMoviesByCategory = {};
 
     for (const category of categories) {
-      const popularMovies = await movieModel.find({ category: category._id })
-        .sort({ rating: -1, views: -1 })
-        .limit(10)
-        .populate("category");
+      const movieQuery = { category: category._id };
 
-      if (popularMovies && popularMovies.length > 0) {
-        // Add episode summary for webseries within categories
-        const moviesWithEpisodeSummary = await Promise.all(
-          popularMovies.map(async (movie) => {
-            const movieObj = movie.toObject();
-            if (movie.type === "webseries") {
-              const episodes = await Episode.find({ movieId: movie._id }).sort({
-                seasonNo: 1,
-                episodeNo: 1,
-              });
-              const seasons = new Set(episodes.map((ep) => ep.seasonNo));
-              movieObj.totalSeasons = seasons.size;
-              movieObj.totalEpisodes = episodes.length;
-            }
-            return movieObj;
-          })
-        );
-
-        popularMoviesByCategory[category.categoryName] =
-          moviesWithEpisodeSummary.map((movie) => ({
-            _id: movie._id,
-            title: movie.title,
-            thumbnail: movie.thumbnail,
-            description: movie.description,
-            type: movie.type,
-            isPremium: movie.isPremium,
-            views: movie.views.length,
-            rating: movie.rating,
-            category: movie.category,
-            totalSeasons: movie.totalSeasons,
-            totalEpisodes: movie.totalEpisodes,
-          }));
+      if (type && ["movie", "webseries"].includes(type)) {
+        movieQuery.type = type;
       }
-    }
 
-    return res.status(200).json({
-      status: true,
-      message: "Popular movies by category fetched successfully",
-      data: popularMoviesByCategory,
-    });
-  } catch (error) {
-    return ThrowError(res, 500, error.message);
-  }
-};
+      const movies = await movieModel
+        .find(movieQuery);
 
-// Get Movies Grouped By Genre
-exports.getMoviesGroupedByGenre = async (req, res) => {
-  try {
-    const user = req.user;
-    let query = {};
+      if (!movies || movies.length === 0) continue;
 
-    // Apply parental control filter if user is authenticated
-    if (user) {
-      // Get user's parental control settings
-      const userWithParentalControl = await userModel.findById(user._id);
-
-      if (
-        userWithParentalControl &&
-        userWithParentalControl.parentalControl &&
-        userWithParentalControl.parentalControl.length > 0
-      ) {
-        // Filter movies based on user's allowed content ratings
-        query.contentRating = { $in: userWithParentalControl.parentalControl };
-      }
-    }
-
-    const movies = await Movie.find(query).populate("category");
-
-    if (!movies || movies.length === 0) {
-      return res.status(200).json({
-        status: true,
-        message: "No movies found",
-        data: {},
+      movies.sort((a, b) => {
+        const viewsA = a.views?.length || 0;
+        const viewsB = b.views?.length || 0;
+        return b.rating - a.rating || viewsB - viewsA;
       });
-    }
-    // Group movies by genre, ensuring all genres have the first letter capitalized and ignoring case sensitivity
-    const groupedMovies = movies.reduce((acc, movie) => {
-      let genres = [];
-      if (typeof movie.genre === "string") {
-        genres = movie.genre
-          .split(",")
-          .map(
-            (g) =>
-              g.trim().charAt(0).toUpperCase() + g.trim().slice(1).toLowerCase()
-          )
-          .filter(Boolean);
-      } else if (Array.isArray(movie.genre)) {
-        genres = movie.genre
-          .map(
-            (g) =>
-              g.trim().charAt(0).toUpperCase() + g.trim().slice(1).toLowerCase()
-          )
-          .filter(Boolean);
-      }
-      if (genres.length === 0) {
-        genres = ["Uncategorized"];
-      }
 
-      genres.forEach((genre) => {
-        if (!genre) return; // Skip if genre is null or undefined
+      const topMovies = movies.slice(0, 10);
 
-        // Ensure genre is in the correct case for the accumulator
-        const formattedGenre =
-          genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase();
-        if (!acc[formattedGenre]) {
-          acc[formattedGenre] = [];
-        }
-        acc[formattedGenre].push({
-          _id: movie._id,
-          title: movie.title,
-          thumbnail: movie.thumbnail,
-          description: movie.description,
-          type: movie.type,
-          views: movie.views || [],
-          rating: movie.rating || 0,
-          category: movie.category,
-        });
-      });
-      return acc;
-    }, {});
-
-    // Sort movies within each genre by rating and views
-    Object.keys(groupedMovies).forEach((genre) => {
-      groupedMovies[genre].sort((a, b) => {
-        const ratingDiff = (b.rating || 0) - (a.rating || 0);
-        if (ratingDiff !== 0) return ratingDiff;
-        return (b.views || 0) - (a.views || 0);
-      });
-    });
-
-    // Add episode summary for webseries
-    const groupedMoviesWithEpisodeSummary = {};
-    for (const genre in groupedMovies) {
-      groupedMoviesWithEpisodeSummary[genre] = await Promise.all(
-        groupedMovies[genre].map(async (movie) => {
+      const moviesWithEpisodes = await Promise.all(
+        topMovies.map(async (movie) => {
           if (movie.type === "webseries") {
             const episodes = await Episode.find({ movieId: movie._id }).sort({
               seasonNo: 1,
               episodeNo: 1,
             });
+
             const seasons = new Set(episodes.map((ep) => ep.seasonNo));
             movie.totalSeasons = seasons.size;
             movie.totalEpisodes = episodes.length;
+          } else {
+            movie.totalSeasons = 0;
+            movie.totalEpisodes = 0;
           }
+
           return movie;
         })
       );
+
+      popularMoviesByCategory[category.categoryName] = moviesWithEpisodes;
     }
 
     return res.status(200).json({
       status: true,
-      message: "Movies grouped by genre fetched successfully",
-      data: groupedMoviesWithEpisodeSummary,
+      message: `Popular ${type || "all"} content by category fetched successfully`,
+      data: popularMoviesByCategory,
     });
   } catch (error) {
+    console.error("Error fetching popular movies by category:", error);
     return ThrowError(res, 500, error.message);
   }
 };
+
+// Get Movies Grouped By Genre
+// exports.getMoviesGroupedByGenre = async (req, res) => {
+//   try {
+//     const user = req.user;
+//     let query = {};
+
+//     // Apply parental control filter if user is authenticated
+//     if (user) {
+//       // Get user's parental control settings
+//       const userWithParentalControl = await userModel.findById(user._id);
+
+//       if (
+//         userWithParentalControl &&
+//         userWithParentalControl.parentalControl &&
+//         userWithParentalControl.parentalControl.length > 0
+//       ) {
+//         // Filter movies based on user's allowed content ratings
+//         query.contentRating = { $in: userWithParentalControl.parentalControl };
+//       }
+//     }
+
+//     const movies = await Movie.find(query).populate("category");
+
+//     if (!movies || movies.length === 0) {
+//       return res.status(200).json({
+//         status: true,
+//         message: "No movies found",
+//         data: {},
+//       });
+//     }
+//     // Group movies by genre, ensuring all genres have the first letter capitalized and ignoring case sensitivity
+//     const groupedMovies = movies.reduce((acc, movie) => {
+//       let genres = [];
+//       if (typeof movie.genre === "string") {
+//         genres = movie.genre
+//           .split(",")
+//           .map(
+//             (g) =>
+//               g.trim().charAt(0).toUpperCase() + g.trim().slice(1).toLowerCase()
+//           )
+//           .filter(Boolean);
+//       } else if (Array.isArray(movie.genre)) {
+//         genres = movie.genre
+//           .map(
+//             (g) =>
+//               g.trim().charAt(0).toUpperCase() + g.trim().slice(1).toLowerCase()
+//           )
+//           .filter(Boolean);
+//       }
+//       if (genres.length === 0) {
+//         genres = ["Uncategorized"];
+//       }
+
+//       genres.forEach((genre) => {
+//         if (!genre) return; // Skip if genre is null or undefined
+
+//         // Ensure genre is in the correct case for the accumulator
+//         const formattedGenre =
+//           genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase();
+//         if (!acc[formattedGenre]) {
+//           acc[formattedGenre] = [];
+//         }
+//         acc[formattedGenre].push({
+//           _id: movie._id,
+//           title: movie.title,
+//           thumbnail: movie.thumbnail,
+//           description: movie.description,
+//           type: movie.type,
+//           views: movie.views || [],
+//           rating: movie.rating || 0,
+//           category: movie.category,
+//         });
+//       });
+//       return acc;
+//     }, {});
+
+//     // Sort movies within each genre by rating and views
+//     Object.keys(groupedMovies).forEach((genre) => {
+//       groupedMovies[genre].sort((a, b) => {
+//         const ratingDiff = (b.rating || 0) - (a.rating || 0);
+//         if (ratingDiff !== 0) return ratingDiff;
+//         return (b.views || 0) - (a.views || 0);
+//       });
+//     });
+
+//     // Add episode summary for webseries
+//     const groupedMoviesWithEpisodeSummary = {};
+//     for (const genre in groupedMovies) {
+//       groupedMoviesWithEpisodeSummary[genre] = await Promise.all(
+//         groupedMovies[genre].map(async (movie) => {
+//           if (movie.type === "webseries") {
+//             const episodes = await Episode.find({ movieId: movie._id }).sort({
+//               seasonNo: 1,
+//               episodeNo: 1,
+//             });
+//             const seasons = new Set(episodes.map((ep) => ep.seasonNo));
+//             movie.totalSeasons = seasons.size;
+//             movie.totalEpisodes = episodes.length;
+//           }
+//           return movie;
+//         })
+//       );
+//     }
+
+//     return res.status(200).json({
+//       status: true,
+//       message: "Movies grouped by genre fetched successfully",
+//       data: groupedMoviesWithEpisodeSummary,
+//     });
+//   } catch (error) {
+//     return ThrowError(res, 500, error.message);
+//   }
+// };
 
 // Get Last 5 Uploaded Movies
 exports.getLastFiveUploadedMovies = async (req, res) => {
