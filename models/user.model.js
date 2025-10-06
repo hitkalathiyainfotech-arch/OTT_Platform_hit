@@ -147,11 +147,11 @@ const userSchema = mongoose.Schema({
         default: false
     },
     screenTimeUsage: {
-        type: Number, // milliseconds or minutes
+        type: Number,
         default: 0
     },
     screenTimeUsageDate: {
-        type: String, // store as 'YYYY-MM-DD'
+        type: String,
         default: null
     },
     blockInappropriateContent: {

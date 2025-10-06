@@ -3,7 +3,7 @@ const indexRoutes = express.Router();
 const { removeUser, pdateUser, getUserById, getAllUsers, createNewUser, resetPassword, verifyOtp, sendDeleteOtp, verifyDeleteOtp, getDevices, removeDevice, logoutDevice, enableTwoStep, verifyTwoStep, updateScreenTimeUsage, getScreenTimeRemaining, updateUser, } = require("../controller/user.controller");
 const { userLogin, googleLogin, forgotPassword, changePassword, userLogout, sendOtpToMobile, facebookLogin, generateNewToken, verifyTwoStepOTP, } = require("../auth/auth");
 const { auth, movieAuth } = require("../middleware/auth");
-const { getTrending, getPopularSeries, getAllMovies, getMovieById, deleteMovie, getPopularMovies, getTopMoviesThisWeek, getRecommendedContent, getTop10Content, rateMovie, updateMovieRating, deleteMovieRating, getMovieRatingDetails, getTopRatedMovies, incrementMovieViews, getWatchAgainMovies, getPopularMoviesByCategory, createMovie, updateMovie, getTrendingSeries, getTrendingMovie, getMoviesGroupedByGenre, getLastFiveUploadedMovies, addView, uploadVideo, mediaFilter, getCarouselController, AllSearchController, getTopWebseriesThisWeek, getWebSeriesCarouselBannerController, getAllTrending, getRecentSearch, } = require("../controller/movie.controller.js");
+const { getTrending, getPopularSeries, getAllMovies, getMovieById, deleteMovie, getPopularMovies, getTopMoviesThisWeek, getRecommendedContent, getTop10Content, rateMovie, updateMovieRating, deleteMovieRating, getMovieRatingDetails, getTopRatedMovies, incrementMovieViews, getWatchAgainMovies, getPopularMoviesByCategory, createMovie, updateMovie, getTrendingSeries, getTrendingMovie, getMoviesGroupedByGenre, getLastFiveUploadedMovies, addView, uploadVideo, mediaFilter, getCarouselController, AllSearchController, getTopWebseriesThisWeek, getWebSeriesCarouselBannerController, getAllTrending, getRecentSearch, getMostWatchedMovies, getMostWatchedWebSeries, } = require("../controller/movie.controller.js");
 const { createCategory, updateCategory, getCategoryById, getAllCategories, deleteCategory, } = require("../controller/movieCategory.Controller");
 const { upload, convertJfifToJpeg } = require("../helper/uplodes");
 const { createStarring, getAllStarring, getStarringById, getStarringByMovieId, updateStarring, deleteStarring, } = require("../controller/starring.controller");
@@ -130,7 +130,9 @@ indexRoutes.put("/updateCategory/:id", csrfProtection, upload.single("category_i
 indexRoutes.delete("/deleteCategory/:id", csrfProtection, deleteCategory);
 
 indexRoutes.get("/movie/carousel/banner", getCarouselController);
+indexRoutes.get("/getMostWatchedMovies", getMostWatchedMovies);
 indexRoutes.get("/webseries/carousel/banner", getWebSeriesCarouselBannerController)
+indexRoutes.get("/getMostWatchedWebSeries", getMostWatchedWebSeries);
 // movie Routes
 
 indexRoutes.get("/trending", movieAuth, getTrending);
@@ -206,6 +208,8 @@ indexRoutes.get("/getWatchAgainMovies", auth, getWatchAgainMovies);
 indexRoutes.post("/addview/:movieId", auth, addView);
 // Get popular movies by category
 indexRoutes.get("/getPopularMoviesByCategory", movieAuth, getPopularMoviesByCategory);
+
+//get webserie s by genere
 
 //episode
 indexRoutes.post("/createEpisode", csrfProtection, upload.fields([{ name: "thumbnail", maxCount: 1 }]), createEpisode);
