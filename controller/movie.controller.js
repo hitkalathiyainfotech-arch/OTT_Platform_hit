@@ -1366,7 +1366,7 @@ exports.getMoviesGroupedByGenre = async (req, res) => {
       }
     }
 
-    const movies = await movieModel.find(query).lean();
+    const movies = await movieModel.find(query).populate("category").lean();
 
     if (!movies || movies.length === 0) {
       return res.status(200).json({
@@ -2185,7 +2185,7 @@ exports.getPopularMoviesByCategory = async (req, res) => {
       }
 
       const movies = await movieModel
-        .find(movieQuery);
+        .find(movieQuery).populate("category");
 
       if (!movies || movies.length === 0) continue;
 
