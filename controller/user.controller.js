@@ -623,19 +623,19 @@ exports.verifyDeleteOtp = async (req, res) => {
         let { email, phoneNo, otp } = req.body;
 
         email = encryptData(email);
-        phoneNo = encryptData(phoneNo);
+        // phoneNo = encryptData(phoneNo);
 
 
         let checkEmail = await user.findOne({ email });
-        let checkPhoneNo = await user.findOne({ phoneNo });
+        // let checkPhoneNo = await user.findOne({ phoneNo });
 
         if (email && !checkEmail) {
             return res.status(404).json({ status: 404, message: "Email Not Found" });
         }
 
-        if (phoneNo && !checkPhoneNo) {
-            return res.status(404).json({ status: 404, message: "Phone No Not Found" });
-        }
+        // if (phoneNo && !checkPhoneNo) {
+        //     return res.status(404).json({ status: 404, message: "Phone No Not Found" });
+        // }
 
         if (email && checkEmail.otp != otp) {
             return res.status(404).json({ status: 404, message: "Invalid Otp for Email" });
@@ -650,10 +650,10 @@ exports.verifyDeleteOtp = async (req, res) => {
             await checkEmail.save();
         }
 
-        if (phoneNo) {
-            checkPhoneNo.otp = null;
-            await checkPhoneNo.save();
-        }
+        // if (phoneNo) {
+        //     checkPhoneNo.otp = null;
+        //     await checkPhoneNo.save();
+        // }
 
         return res.status(200).json({
             status: 200,
