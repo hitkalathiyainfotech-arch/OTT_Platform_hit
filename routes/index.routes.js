@@ -17,7 +17,7 @@ const { addToWatchlist, removeFromWatchlist, getWatchlist, } = require("../contr
 const { createSubscribe, getSubscribeById, getAllSubscribe, updateSubscribe, deleteSubscribe, } = require("../controller/subscribe.controller");
 const { dashboard, topCategories, totalRevenue, newSubscribersByPlan, mostWatched, } = require("../controller/dashboard.controller");
 const { addOrUpdateContinueWatching, getContinueWatching, removeContinueWatching, } = require("../controller/continueWatching.controller");
-const { createPremium, getallPremium, updatePremium, deletePremium, updateFeatureDescription, } = require("../controller/premium.controller");
+const { createPremium, getallPremium, updatePremium, deletePremium, updateFeatureDescription, getPremiumById, } = require("../controller/premium.controller");
 const { getAllFeature, createFeature, } = require("../controller/Feature.controller");
 const { createPayment, getallPayment, getPaymentUser, } = require("../controller/payment.controller");
 const { getAds, createAds, updateAds, deleteAds, getallAds, } = require("../controller/ads.controller");
@@ -288,6 +288,7 @@ indexRoutes.post("/createPremium", csrfProtection, createPremium);
 indexRoutes.get("/getallPremium", cacheMiddleware((req) => `cache:GET:${req.originalUrl}`, 3600), getallPremium);
 indexRoutes.put("/updatePremium/:id", csrfProtection, updatePremium);
 indexRoutes.delete("/deletePremium/:id", csrfProtection, deletePremium);
+indexRoutes.get("/getPremiumById/:id", getPremiumById)
 indexRoutes.put("/premium/feature-description/:id", csrfProtection, updateFeatureDescription);
 
 // payment

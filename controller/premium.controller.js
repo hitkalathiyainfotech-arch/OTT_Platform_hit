@@ -185,6 +185,33 @@ exports.deletePremium = async (req, res) => {
   }
 };
 
+exports.getPremiumById = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(200).json({
+        message: "Object Id is not vaild"
+      })
+    }
+
+    const premium = await Premium.findOne({ _id: id });
+
+    return res.status(200).json({
+      success: true,
+      message: "Premium Get successfully",
+      premium
+    })
+
+  } catch (error) {
+    console.log("error while get Premium By ID", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error while get premium By Isd"
+    })
+  }
+}
+
 exports.updateFeatureDescription = async (req, res) => {
   const { id } = req.params;
   const { plan, featureName, description } = req.body; // Changed from planName to plan
