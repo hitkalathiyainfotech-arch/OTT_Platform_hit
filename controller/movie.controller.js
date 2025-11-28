@@ -2538,7 +2538,7 @@ exports.getMostWatchedMovies = async (req, res) => {
 exports.getWebSeriesCarouselBannerController = async (req, res) => {
   try {
     const user = req.user;
-    // let matchQuery = { type: "movie" }; // filter only movies
+    let matchQuery = { type: "webseries" };
 
     // Apply parental control filter if user is authenticated
     if (user) {
@@ -2555,13 +2555,38 @@ exports.getWebSeriesCarouselBannerController = async (req, res) => {
       }
     }
 
-    const movies = await movieModel.find({ type: "webseries" }).sort({ createdAt: -1 }).limit(5)
+    // Get last 5 webseries
+    const webseries = await movieModel
+      .find(matchQuery)
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("category");
+
+    // Add seasons & episode count
+    const webseriesWithSeasons = await Promise.all(
+      webseries.map(async (series) => {
+        const seriesObj = series.toObject();
+
+        const episodes = await Episode.find({ movieId: series._id }).sort({
+          seasonNo: 1,
+          episodeNo: 1,
+        });
+
+        const seasons = new Set(episodes.map((ep) => ep.seasonNo));
+
+        seriesObj.totalSeasons = seasons.size;
+        seriesObj.totalEpisodes = episodes.length;
+
+        return seriesObj;
+      })
+    );
 
     return res.status(200).json({
       status: true,
-      message: "last 5 Web Series carousel for fetched successfully",
-      data: movies,
+      message: "Last 5 Webseries carousel fetched successfully",
+      data: webseriesWithSeasons,
     });
+
   } catch (error) {
     return ThrowError(res, 500, error.message);
   }
@@ -2600,7 +2625,7 @@ exports.getMostWatchedWebSeries = async (req, res) => {
 exports.getTopWebseriesThisWeek = async (req, res) => {
   try {
     const user = req.user;
-    let query = { type: "webseries" }; // filter only webseries
+    let query = { type: "webseries" };
 
     // Apply parental control filter if user is authenticated
     if (user) {
@@ -2615,13 +2640,11 @@ exports.getTopWebseriesThisWeek = async (req, res) => {
       }
     }
 
-    // ✅ Removed createdAt filter so it behaves like getTopMoviesThisWeek
     const topWebseries = await Movie.find(query)
       .sort({ views: -1 })
       .limit(10)
       .populate("category");
 
-    // Populate episodes info for each webseries
     const webseriesWithEpisodes = await Promise.all(
       topWebseries.map(async (series) => {
         const seriesObj = series.toObject();
