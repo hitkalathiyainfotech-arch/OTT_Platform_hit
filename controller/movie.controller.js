@@ -2594,33 +2594,64 @@ exports.getWebSeriesCarouselBannerController = async (req, res) => {
 
 exports.getMostWatchedWebSeries = async (req, res) => {
   try {
-    const movies = await movieModel.find({ type: "webseries" });
+    const user = req.user;
+    let matchQuery = { type: "webseries" };
 
-    const sortedMovies = movies
-      .map(movie => ({
-        ...movie._doc,
-        viewCount: movie.views?.length || 0
-      }))
-      .sort((a, b) => b.viewCount - a.viewCount);
+    // Apply parental control filter if user is authenticated
+    if (user) {
+      const userWithParentalControl = await userModel.findById(user._id);
 
-    const topMovies = sortedMovies.slice(0, 5);
+      if (
+        userWithParentalControl &&
+        userWithParentalControl.parentalControl &&
+        userWithParentalControl.parentalControl.length > 0
+      ) {
+        matchQuery.contentRating = {
+          $in: userWithParentalControl.parentalControl,
+        };
+      }
+    }
+
+    // Get all webseries with view count
+    const webseries = await movieModel
+      .find(matchQuery)
+      .populate("category");
+
+    // Add seasons & episode count and calculate view count
+    const webseriesWithSeasonsAndViews = await Promise.all(
+      webseries.map(async (series) => {
+        const seriesObj = series.toObject();
+
+        const episodes = await Episode.find({ movieId: series._id }).sort({
+          seasonNo: 1,
+          episodeNo: 1,
+        });
+
+        const seasons = new Set(episodes.map((ep) => ep.seasonNo));
+
+        seriesObj.totalSeasons = seasons.size;
+        seriesObj.totalEpisodes = episodes.length;
+        seriesObj.viewCount = series.views?.length || 0;
+
+        return seriesObj;
+      })
+    );
+
+    // Sort by view count (descending) and get top 5
+    const mostWatchedWebseries = webseriesWithSeasonsAndViews
+      .sort((a, b) => b.viewCount - a.viewCount)
+      .slice(0, 5);
 
     return res.status(200).json({
       status: true,
-      message: "Top most viewed web series fetched successfully",
-      data: topMovies
+      message: "Most watched 5 Webseries fetched successfully",
+      data: mostWatchedWebseries,
     });
 
-
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      message: "Error during getMostWatchedMovies ",
-      error: error.message
-    })
+    return ThrowError(res, 500, error.message);
   }
-}
-
+};
 
 exports.getTopWebseriesThisWeek = async (req, res) => {
   try {
