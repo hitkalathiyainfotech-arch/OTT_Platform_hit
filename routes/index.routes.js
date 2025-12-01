@@ -70,7 +70,8 @@ indexRoutes.use((req, res, next) => {
     req.path.startsWith("/generateNewTokens") ||
     req.path.startsWith("/changePassword") ||
     req.path.startsWith("/createMovie") ||
-    req.path.startsWith("/addview")
+    req.path.startsWith("/addview") ||
+    req.path.startsWith("/createsubscribe")
   ) {
     return next();
   }
