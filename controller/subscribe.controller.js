@@ -101,7 +101,7 @@ exports.getSubscribeById = async (req, res) => {
     const subscriptions = await Subscribe.find({ userId });
 
     if (!subscriptions || subscriptions.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: "No subscriptions found for this user"
       });
