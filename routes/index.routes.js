@@ -253,8 +253,8 @@ indexRoutes.put("/updatecookiePolicy/:id", csrfProtection, updateCookiePolicy);
 indexRoutes.delete("/deletecookiePolicy/:id", csrfProtection, deleteCookiePolicy);
 
 // subscribe
-indexRoutes.post("/createsubscribe", csrfProtection, createSubscribe);
-indexRoutes.get("/getsubscribeById/:id", getSubscribeById);
+indexRoutes.post("/createsubscribe", auth, createSubscribe);
+indexRoutes.get("/getsubscribeById/",auth, getSubscribeById);
 indexRoutes.get("/getAllsubscribe", getAllSubscribe);
 indexRoutes.put("/updatesubscribe", csrfProtection, updateSubscribe);
 indexRoutes.delete("/deletesubscribe/:id", csrfProtection, deleteSubscribe);
