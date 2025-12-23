@@ -785,113 +785,99 @@ exports.facebookLogin = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    let { email, phoneNo } = req.body;
+    const { email, phoneNo } = req.body;
 
-    let emailEnc = email ? encryptData(email) : null;
-    let phoneNoEnc = phoneNo ? encryptData(phoneNo) : null;
-    // console.log(emailEnc)
+    const emailEnc = email ? encryptData(email) : null;
+    const phoneNoEnc = phoneNo ? encryptData(phoneNo) : null;
+
     if (emailEnc) {
-      let checkEmail = await user.findOne({ email: emailEnc });
-      if (!checkEmail) {
-        return res
-          .status(404)
-          .json({ status: 404, message: "Email Not Found" });
+      const userData = await user.findOne({ email: emailEnc });
+      if (!userData) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: "Email Not Found"
+        });
       }
 
-      // Generate a reset token and expiry
       const resetToken = crypto.randomBytes(32).toString("hex");
-      const resetTokenExpiry = Date.now() + 1000 * 60 * 60; // 1 hour
+      const resetTokenExpiry = Date.now() + 60 * 60 * 1000;
 
-      checkEmail.resetPasswordToken = resetToken;
-      checkEmail.resetPasswordExpires = resetTokenExpiry;
-      await checkEmail.save();
-
-      const resetUrl = `https://ott-platform-hit.onrender.com/?token=${resetToken}&email=${email}`; // Adjust frontend URL as needed
+      userData.resetPasswordToken = resetToken;
+      userData.resetPasswordExpires = resetTokenExpiry;
+      await userData.save();
 
       const transport = nodemailer.createTransport({
         service: "Gmail",
         auth: {
           user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
+          pass: process.env.EMAIL_PASS
+        }
       });
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
-        subject: "Password Reset Request",
-        text: `You have requested a password reset. Please click the following link to reset your password: ${resetUrl}\nIf you did not request this, please ignore this email.`,
+        subject: "Password Reset Token",
+        text: `Your password reset token is: ${resetToken}. This token is valid for 1 hour.`,
         html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-            <h2 style="color: #007bff; text-align: center;">Password Reset Request</h2>
-            <p>Hello,</p>
-            <p>You recently requested to reset your password for your account. Click the button below to reset it:</p>
-            <p style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}" style="background-color: #007bff; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Your Password</a>
-            </p>
-            <p>If the button above doesn't work, you can also copy and paste the following link into your browser:</p>
-            <p>If you did not request a password reset, please ignore this email or contact support if you have any concerns.</p>
-            <p>Thank you,</p>
-            <p>The OTT Platform Team</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="font-size: 0.8em; color: #777; text-align: center;">This is an automated email, please do not reply.</p>
+          <div style="font-family: Arial; color:#333">
+            <h2>Password Reset</h2>
+            <p>Your password reset token is:</p>
+            <h3>${resetToken}</h3>
+            <p>This token is valid for 1 hour.</p>
+            <p>If you did not request this, please ignore this email.</p>
           </div>
-        `,
+        `
       };
 
-      transport.sendMail(mailOptions, (error) => {
-        if (error) {
-          console.log(error);
-          return res
-            .status(500)
-            .json({ status: 500, success: false, message: error.message });
-        }
-        return res.status(200).json({
-          status: 200,
-          success: true,
-          message: "Reset link sent to email.",
-        });
-      });
-    } else {
-      let checkphoneNo = await user.findOne({ phoneNo: phoneNoEnc });
-      if (!checkphoneNo) {
-        return res
-          .status(404)
-          .json({ status: 404, message: "Phone No Not Found" });
-      }
-      // let otp = Math.floor(Math.random() * (9999 - 1000 + 1)) + 1000;
-      const otp = 5678;
-      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-      // Check if Twilio is configured
-      // if (!twilioClient) {
-      //   return res.status(503).json({
-      //     status: 503,
-      //     message: "SMS service is not configured. Please contact the administrator."
-      //   });
-      // }
-
-      // Send OTP via SMS
-      // await twilioClient.messages.create({
-      //   body: `Your OTP is: ${otp}`,
-      //   from: process.env.TWILIO_PHONE_NUMBER,
-      //   to: mobileNumber
-      // });
-      checkphoneNo.otp = otp;
-      checkphoneNo.otpExpiry = otpExpiry;
-      await checkphoneNo.save();
+      await transport.sendMail(mailOptions);
 
       return res.status(200).json({
         status: 200,
         success: true,
-        message: "OTP sent to phone number.",
-        // otp: otp,
+        message: "Reset token sent to email"
       });
     }
+
+    if (phoneNoEnc) {
+      const userData = await user.findOne({ phoneNo: phoneNoEnc });
+      if (!userData) {
+        return res.status(404).json({
+          status: 404,
+          success: false,
+          message: "Phone No Not Found"
+        });
+      }
+
+      const otp = Math.floor(1000 + Math.random() * 9000);
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+      userData.otp = otp;
+      userData.otpExpiry = otpExpiry;
+      await userData.save();
+
+      return res.status(200).json({
+        status: 200,
+        success: true,
+        message: "OTP sent to phone number"
+      });
+    }
+
+    return res.status(400).json({
+      status: 400,
+      success: false,
+      message: "Email or Phone number is required"
+    });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ status: 500, message: error.message });
+    return res.status(500).json({
+      status: 500,
+      success: false,
+      message: error.message
+    });
   }
 };
+
 
 // exports.verifyOtp = async (req, res) => {
 //   try {
