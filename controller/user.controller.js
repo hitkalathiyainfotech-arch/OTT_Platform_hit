@@ -160,7 +160,7 @@ exports.createNewUser = async (req, res) => {
 exports.sendOtpEmail = async (toEmail, otp) => {
     try {
         let transporter = nodemailer.createTransport({
-            service: 'gmail',
+            service: 'smtp.google.com',
             port: 3000,
             auth: {
                 user: process.env.MY_GMAIL,
